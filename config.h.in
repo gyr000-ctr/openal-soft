@@ -52,6 +52,9 @@
 /* Define to 1 if we have DBus/RTKit, else 0 */
 #cmakedefine01 HAVE_RTKIT
 
+/* Define to 1 if we have MySOFA for runtime SOFA HRTF loading, else 0 */
+#cmakedefine01 HAVE_MYSOFA
+
 /* Define to 1 if building for winuwp, else 0 */
 #cmakedefine01 ALSOFT_UWP
 

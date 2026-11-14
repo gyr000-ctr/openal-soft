@@ -17,6 +17,13 @@ target_link_libraries(OpenAL_Tests PRIVATE
 
 target_sources(OpenAL_Tests PRIVATE
 example.t.cpp
+sofa.t.cpp
+)
+
+target_compile_definitions(OpenAL_Tests PRIVATE
+AL_ALEXT_PROTOTYPES
+HAVE_MYSOFA=$<BOOL:${HAVE_MYSOFA}>
+SOFA_TEST_DIR="${OpenAL_SOURCE_DIR}/tests/sofa"
 )
 
 # This needs to come last

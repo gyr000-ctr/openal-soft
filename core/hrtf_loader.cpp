@@ -17,6 +17,10 @@
 #include "opthelpers.h"
 #include "zudl.hpp"
 
+#if HAVE_MYSOFA
+#include "hrtf_loader_sofa.hpp"
+#endif
+
 #if HAVE_CXXMODULES
 import fmtlib;
 import format;
@@ -31,6 +35,8 @@ import numeric;
 #include "logging.h"
 #include "numeric.hpp"
 #endif
+
+#include "hrtf_loader_internal.hpp"
 
 
 namespace {
@@ -64,6 +70,15 @@ static_assert(GetMarker00Name().size() == HeaderMarkerSize);
 static_assert(GetMarker01Name().size() == HeaderMarkerSize);
 static_assert(GetMarker02Name().size() == HeaderMarkerSize);
 static_assert(GetMarker03Name().size() == HeaderMarkerSize);
+
+#if HAVE_MYSOFA
+/* SOFA files are HDF5 files, which start with this signature. */
+constexpr auto Hdf5MarkerSize = 8_uz;
+[[nodiscard]] constexpr auto GetMarkerHdf5Name() noexcept { return "\x89HDF\r\n\x1a\n"sv; }
+static_assert(GetMarkerHdf5Name().size() == Hdf5MarkerSize);
+#endif
+
+} // namespace
 
 
 auto CreateHrtfStore(std::uint32_t const rate, std::uint8_t const irSize,
@@ -157,6 +172,8 @@ void MirrorLeftHrirs(std::span<HrtfStore::Elevation const> const elevs,
     }
 }
 
+
+namespace {
 
 template<size_t num_bits, typename T>
 constexpr auto fixsign(T value) noexcept -> T
@@ -781,6 +798,17 @@ auto LoadHrtf(std::istream &stream) -> std::unique_ptr<HrtfStore>
         TRACE("Detected data set format v0");
         return LoadHrtf00(stream);
     }
+#if HAVE_MYSOFA
+    if(std::ranges::equal(GetMarkerHdf5Name(), magic))
+    {
+        TRACE("Detected SOFA (HDF5) data set");
+        /* Rewind so the SOFA loader sees the complete file. */
+        stream.clear();
+        if(!stream.seekg(0, std::ios::beg))
+            throw std::runtime_error{"Failed to rewind SOFA data stream"};
+        return LoadSofaHrtf(stream);
+    }
+#endif
     throw std::runtime_error{fmt::format("Invalid header: {::#04X}",
         std::as_bytes(std::span{magic}))};
 }

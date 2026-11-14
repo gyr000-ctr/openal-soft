@@ -155,9 +155,11 @@
 ## hrtf-paths:
 #  Specifies a comma-separated list of paths containing HRTF data sets. The
 #  format of the files are described in docs/hrtf.txt. The files within the
-#  directories must have the .mhr file extension to be recognized. By default,
-#  OS-dependent data paths will be used. They will also be used if the list
-#  ends with a comma. On Windows this is:
+#  directories must have the .mhr file extension to be recognized. If OpenAL
+#  Soft was built with MySOFA, SOFA files (SimpleFreeFieldHRIR convention,
+#  SOFA 1.0 and 2.0) with the .sofa file extension are also recognized and
+#  loaded at runtime. By default, OS-dependent data paths will be used. They
+#  will also be used if the list ends with a comma. On Windows this is:
 #  $AppData\openal\hrtf
 #  And on other systems, it's (in order):
 #  $XDG_DATA_HOME/openal/hrtf  (defaults to $HOME/.local/share/openal/hrtf)

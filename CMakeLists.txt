@@ -102,6 +102,8 @@ option(ALSOFT_WERROR  "Treat compile warnings as errors"      OFF)
 option(ALSOFT_UTILS "Build utility programs"  ON)
 option(ALSOFT_NO_CONFIG_UTIL "Disable building the alsoft-config utility" OFF)
 
+option(ALSOFT_RUNTIME_SOFA "Enable runtime loading of SOFA HRTF files (requires MySOFA)" ON)
+
 option(ALSOFT_EXAMPLES  "Build example programs"  ON)
 option(ALSOFT_TESTS "Build test programs"  OFF)
 
@@ -946,6 +948,20 @@ if(ALSOFT_REQUIRE_RTKIT AND NOT HAVE_RTKIT)
     message(FATAL_ERROR "Failed to enable required RTKit support")
 endif()
 
+# Optional runtime SOFA HRTF loading via MySOFA
+set(HAVE_MYSOFA 0)
+if(ALSOFT_RUNTIME_SOFA)
+    find_package(MySOFA)
+    if(MYSOFA_FOUND)
+        set(HAVE_MYSOFA 1)
+        list(APPEND CORE_SRCS core/hrtf_loader_sofa.cpp)
+        list(APPEND CORE_HDRS core/hrtf_loader_sofa.hpp)
+    else()
+        message(STATUS "Could NOT find MySOFA, runtime SOFA HRTF loading is disabled")
+    endif()
+endif()
+list(APPEND CORE_HDRS core/hrtf_loader_internal.hpp)
+
 # Default mixers, always available
 list(APPEND CORE_SRCS
     core/mixer/mixer_c.cpp)
@@ -1566,7 +1582,9 @@ endif()
 
 
 if(ALSOFT_UTILS)
-    find_package(MySOFA)
+    if(NOT MYSOFA_FOUND)
+        find_package(MySOFA)
+    endif()
     if(NOT ALSOFT_NO_CONFIG_UTIL)
         find_package(Qt6Widgets QUIET)
         if(NOT Qt6Widgets_FOUND)
@@ -1872,6 +1890,9 @@ else()
         set_target_properties(${IMPL_TARGET} PROPERTIES PREFIX "")
     endif()
     target_link_libraries(${IMPL_TARGET} PRIVATE alsoft::common ${EXTRA_LIBS} ${MATH_LIB})
+    if(HAVE_MYSOFA)
+        target_link_libraries(${IMPL_TARGET} PRIVATE MySOFA::MySOFA)
+    endif()
     # FIXME: Can't have the modules as part of ${IMPL_TARGET} directly for some
     # reason, causing problems with the private alsoft.common and alsoft.fmt
     # libs, so they're added through this target to work around the bug.
