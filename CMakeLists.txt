@@ -820,6 +820,7 @@ set(CORE_MODS )
 set(CORE_SRCS
     core/ambdec.cpp
     core/bformatdec.cpp
+    core/bs1770.cpp
     core/bs2b.cpp
     core/context.cpp
     core/converter.cpp
@@ -852,6 +853,7 @@ set(CORE_HDRS
     core/ambi_utils.hpp
     core/async_event.h
     core/bformatdec.h
+    core/bs1770.h
     core/bs2b.h
     core/bsinc_defs.h
     core/bsinc_tables.hpp
