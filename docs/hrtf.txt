@@ -81,3 +81,29 @@ After the coefficients is an array of unsigned 8-bit delay values as 6.2 fixed
 point integers, one for each HRIR (with stereo HRTFs interleaving left/right
 ear delays). This is the propagation delay in samples a signal must wait before
 being convolved with the corresponding minimum-phase HRIR filter.
+
+SOFA Data Sets
+==============
+
+In addition to the native format above, AES69 SOFA files
+(https://www.sofa-storage.org/) in the SimpleFreeFieldHRIR convention can be
+loaded directly at runtime when built with SOFA support (the
+ALSOFT_RUNTIME_SOFA CMake option, on by default when zlib is available). The
+files need to follow the SOFA conventions closely enough to map onto the same
+elevation/azimuth grid the native data sets use:
+
+- One emitter (E=1) and one or two receivers (R=1 or 2). Mono data sets are
+  mirrored to both ears.
+- Measurements on a uniform elevation grid with a uniform azimuth step on each
+  elevation (a full circle starting from the front), or the missing elevations
+  are synthesized from the nearest measured one.
+- SourcePosition may use either spherical or cartesian coordinates, and
+  Data.Delay may be shaped [I][R] (one delay per ear) or [M][R] (one per
+  measurement). Without delays, the response onset is used.
+
+The file may contain the whole measurement grid or omit the lower elevations,
+which are then synthesized by mirroring the top. A data set that doesn't fit
+the grid, is missing required data, or is larger than the loader's limit is
+rejected with a distinguishable error and the next available data set is used
+instead (falling back to the default set), the same as an unreadable native
+file.

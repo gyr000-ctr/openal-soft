@@ -1,8 +1,10 @@
 #ifndef AL_SPANSTREAM_HPP
 #define AL_SPANSTREAM_HPP
 
+#include <algorithm>
 #include <concepts>
 #include <istream>
+#include <limits>
 #include <span>
 #include <streambuf>
 

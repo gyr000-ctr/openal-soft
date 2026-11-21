@@ -102,6 +102,8 @@ option(ALSOFT_WERROR  "Treat compile warnings as errors"      OFF)
 option(ALSOFT_UTILS "Build utility programs"  ON)
 option(ALSOFT_NO_CONFIG_UTIL "Disable building the alsoft-config utility" OFF)
 
+option(ALSOFT_RUNTIME_SOFA "Enable runtime loading of SOFA HRTF files (requires zlib)" ON)
+
 option(ALSOFT_EXAMPLES  "Build example programs"  ON)
 option(ALSOFT_TESTS "Build test programs"  OFF)
 
@@ -953,6 +955,46 @@ if(ALSOFT_REQUIRE_RTKIT AND NOT HAVE_RTKIT)
     message(FATAL_ERROR "Failed to enable required RTKit support")
 endif()
 
+# Optional runtime SOFA HRTF loading. Uses a vendored, trimmed copy of
+# libmysofa (BSD-3-Clause) to parse the HDF5 container; zlib is required for
+# deflate-compressed data.
+set(HAVE_MYSOFA 0)
+if(ALSOFT_RUNTIME_SOFA)
+    find_package(ZLIB)
+    if(ZLIB_FOUND)
+        set(HAVE_MYSOFA 1)
+
+        add_library(alsoft.mysofa STATIC EXCLUDE_FROM_ALL
+            libmysofa/hdf/btree.c
+            libmysofa/hdf/dataobject.c
+            libmysofa/hdf/fractalhead.c
+            libmysofa/hdf/gcol.c
+            libmysofa/hdf/gunzip.c
+            libmysofa/hdf/superblock.c
+            libmysofa/hrtf/check.c
+            libmysofa/hrtf/reader.c
+            libmysofa/hrtf/spherical.c
+            libmysofa/hrtf/tools.c)
+        target_include_directories(alsoft.mysofa
+            PUBLIC ${OpenAL_SOURCE_DIR}/libmysofa/hrtf
+            PRIVATE ${OpenAL_SOURCE_DIR}/libmysofa)
+        target_link_libraries(alsoft.mysofa PUBLIC ZLIB::ZLIB ${MATH_LIB})
+        # Third-party C code; build it without the project's warning set (and
+        # without warnings being errors).
+        target_compile_options(alsoft.mysofa PRIVATE $<$<COMPILE_LANG_AND_ID:C,GNU,Clang>:-w>)
+        set_target_properties(alsoft.mysofa PROPERTIES
+            C_STANDARD 99
+            POSITION_INDEPENDENT_CODE TRUE)
+        add_library(alsoft::mysofa ALIAS alsoft.mysofa)
+
+        list(APPEND CORE_SRCS core/hrtf_loader_sofa.cpp)
+        list(APPEND CORE_HDRS core/hrtf_loader_sofa.hpp)
+    else()
+        message(STATUS "Could NOT find zlib, runtime SOFA HRTF loading is disabled")
+    endif()
+endif()
+list(APPEND CORE_HDRS core/hrtf_loader_internal.hpp)
+
 # Default mixers, always available
 list(APPEND CORE_SRCS
     core/mixer/mixer_c.cpp)
@@ -1784,6 +1826,9 @@ if(LIBTYPE STREQUAL "STATIC")
     target_include_directories(${IMPL_TARGET} PRIVATE ${OpenAL_SOURCE_DIR}/gsl/include)
     target_link_libraries(${IMPL_TARGET} PRIVATE Threads::Threads ${LINKER_FLAGS} ${EXTRA_LIBS}
         ${MATH_LIB} $<BUILD_LOCAL_INTERFACE:alsoft::fmt>)
+    if(HAVE_MYSOFA)
+        target_link_libraries(${IMPL_TARGET} PRIVATE alsoft::mysofa)
+    endif()
 
     if(CMAKE_SYSTEM_NAME STREQUAL "Darwin" AND DEFINED CMAKE_OSX_DEPLOYMENT_TARGET
         AND CMAKE_OSX_DEPLOYMENT_TARGET VERSION_LESS "10.13")
@@ -1882,6 +1927,9 @@ else()
         set_target_properties(${IMPL_TARGET} PROPERTIES PREFIX "")
     endif()
     target_link_libraries(${IMPL_TARGET} PRIVATE alsoft::common ${EXTRA_LIBS} ${MATH_LIB})
+    if(HAVE_MYSOFA)
+        target_link_libraries(${IMPL_TARGET} PRIVATE alsoft::mysofa)
+    endif()
     # FIXME: Can't have the modules as part of ${IMPL_TARGET} directly for some
     # reason, causing problems with the private alsoft.common and alsoft.fmt
     # libs, so they're added through this target to work around the bug.

@@ -362,8 +362,15 @@ auto EnumerateHrtf(std::optional<std::string> const &pathopt) -> std::vector<std
     auto enumlock = std::lock_guard{EnumeratedHrtfLock};
     EnumeratedHrtfs.clear();
 
+    /* SOFA files are only enumerated when runtime SOFA loading is built in;
+     * otherwise they'd show up but fail to load.
+     */
     std::ranges::for_each(SearchDataFiles(u8".mhr"sv),
         [](fs::path& path) { AddFileEntry(std::move(path)); });
+#if HAVE_MYSOFA
+    std::ranges::for_each(SearchDataFiles(u8".sofa"sv),
+        [](fs::path& path) { AddFileEntry(std::move(path)); });
+#endif
 
     auto usedefaults = true;
     if(pathopt)
@@ -382,6 +389,10 @@ auto EnumerateHrtf(std::optional<std::string> const &pathopt) -> std::vector<std
             usedefaults = false;
             std::ranges::for_each(SearchDataFiles(u8".mhr"sv, al::char_as_u8(entry)),
                 [](fs::path& path) { AddFileEntry(std::move(path)); });
+#if HAVE_MYSOFA
+            std::ranges::for_each(SearchDataFiles(u8".sofa"sv, al::char_as_u8(entry)),
+                [](fs::path& path) { AddFileEntry(std::move(path)); });
+#endif
         });
     }
 
@@ -389,6 +400,10 @@ auto EnumerateHrtf(std::optional<std::string> const &pathopt) -> std::vector<std
     {
         std::ranges::for_each(SearchDataFiles(u8".mhr"sv, u8"openal/hrtf"sv),
             [](fs::path& path) { AddFileEntry(std::move(path)); });
+#if HAVE_MYSOFA
+        std::ranges::for_each(SearchDataFiles(u8".sofa"sv, u8"openal/hrtf"sv),
+            [](fs::path& path) { AddFileEntry(std::move(path)); });
+#endif
         if(!GetHrtfResource(DefaultHrtfResourceID).empty())
             AddBuiltInEntry("Built-In HRTF", DefaultHrtfResourceID);
     }

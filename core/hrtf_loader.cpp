@@ -12,6 +12,10 @@
 #include "hrtf.h"
 #include "opthelpers.h"
 
+#if HAVE_MYSOFA
+#include "hrtf_loader_sofa.hpp"
+#endif
+
 #if HAVE_CXXMODULES
 import common.std;
 
@@ -40,25 +44,14 @@ import zudl;
 #include "zudl.hpp"
 #endif
 
+#include "hrtf_loader_internal.hpp"
+
 
 namespace {
 
 using namespace std::string_view_literals;
 
-/* Data set limits must be the same as or more flexible than those defined in
- * the makemhr utility.
- */
-constexpr auto MinFdCount = 1u;
-constexpr auto MaxFdCount = 16u;
-
-constexpr auto MinFdDistance = 50u;
-constexpr auto MaxFdDistance = 2500u;
-
-constexpr auto MinEvCount = 5u;
-constexpr auto MaxEvCount = 181u;
-
-constexpr auto MinAzCount = 1u;
-constexpr auto MaxAzCount = 255u;
+using namespace al::hrtf_loader;
 
 static_assert(MaxHrirDelay*HrirDelayFracOne < 256, "MaxHrirDelay or HrirDelayFracOne too large");
 
@@ -72,6 +65,17 @@ static_assert(GetMarker00Name().size() == HeaderMarkerSize);
 static_assert(GetMarker01Name().size() == HeaderMarkerSize);
 static_assert(GetMarker02Name().size() == HeaderMarkerSize);
 static_assert(GetMarker03Name().size() == HeaderMarkerSize);
+
+#if HAVE_MYSOFA
+/* SOFA files are HDF5 files, which start with this signature. */
+[[nodiscard]] constexpr auto GetMarkerHdf5Name() noexcept { return "\x89HDF\r\n\x1a\n"sv; }
+static_assert(GetMarkerHdf5Name().size() == HeaderMarkerSize);
+#endif
+
+} // namespace
+
+
+namespace al::hrtf_loader {
 
 
 auto CreateHrtfStore(std::uint32_t const rate, std::uint8_t const irSize,
@@ -165,6 +169,10 @@ void MirrorLeftHrirs(std::span<HrtfStore::Elevation const> const elevs,
     }
 }
 
+} // namespace al::hrtf_loader
+
+
+namespace {
 
 template<size_t num_bits, typename T>
 constexpr auto fixsign(T value) noexcept -> T
@@ -788,6 +796,17 @@ auto LoadHrtf(std::istream &stream) -> std::unique_ptr<HrtfStore>
         TRACE("Detected data set format v0");
         return LoadHrtf00(stream);
     }
+#if HAVE_MYSOFA
+    if(std::ranges::equal(GetMarkerHdf5Name(), magic))
+    {
+        TRACE("Detected SOFA (HDF5) data set");
+        /* Rewind so the SOFA loader sees the complete file. */
+        stream.clear();
+        if(!stream.seekg(0, std::ios::beg))
+            throw std::runtime_error{"Failed to rewind SOFA data stream"};
+        return LoadSofaHrtf(stream);
+    }
+#endif
     throw std::runtime_error{fmt::format("Invalid header: {::#04X}",
         std::as_bytes(std::span{magic}))};
 }
